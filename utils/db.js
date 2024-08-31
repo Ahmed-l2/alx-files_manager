@@ -1,13 +1,14 @@
-import MongoClient from 'mongodb/lib/mongo_client';
+/* eslint-disable import/no-named-as-default */
+import mongodb from 'mongodb';
 
 class DBClient {
   constructor() {
     const host = process.env.DB_HOST || 'localhost';
     const port = process.env.DB_PORT || 27017;
     const database = process.env.DB_DATABASE || 'files_manager';
-    const url = `mongodb://${host}:${port}/${database}`;
+    const dbURL = `mongodb://${host}:${port}/${database}`;
 
-    this.client = new MongoClient(url, { useUnifiedTopology: true });
+    this.client = new mongodb.MongoClient(dbURL, { useUnifiedTopology: true });
     this.client.connect();
   }
 
@@ -23,11 +24,14 @@ class DBClient {
     return this.client.db().collection('files').countDocuments();
   }
 
-  async userExists(email) {
-    return this.client.db().collection('users').findOne({ email });
+  async usersCollection() {
+    return this.client.db().collection('users');
+  }
+
+  async filesCollection() {
+    return this.client.db().collection('files');
   }
 }
 
-const dbClient = new DBClient();
-
+export const dbClient = new DBClient();
 export default dbClient;
