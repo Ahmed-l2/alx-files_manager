@@ -23,6 +23,11 @@ class DBClient {
     return this.client.db().collection('files').countDocuments();
   }
 
+  async userExists(email) {
+    const user = await this.client.db().collection('users').findOne({ email });
+    return user !== null;
+  }
+
   async usersCollection() {
     return this.client.db().collection('users');
   }
