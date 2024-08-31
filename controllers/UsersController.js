@@ -20,6 +20,7 @@ export default class UsersController {
       res.status(400).json({ error: 'Already exist' });
       return;
     }
+
     const result = await (await dbClient.usersCollection())
       .insertOne({ email, password: sha1(password) });
     const userId = result.insertedId.toString();
