@@ -1,4 +1,4 @@
-import MongoClient from 'mongodb/lib/mongo_client';
+import MongoClient from 'mongodb';
 
 class DBClient {
   constructor() {
