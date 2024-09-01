@@ -1,4 +1,3 @@
-/* eslint-disable import/no-named-as-default */
 import mongodb from 'mongodb';
 
 class DBClient {
@@ -24,6 +23,10 @@ class DBClient {
     return this.client.db().collection('files').countDocuments();
   }
 
+  async findUserByEmailAndPassword(email, password) {
+    return this.client.db().collection('users').findOne({ email, password });
+  }
+
   async usersCollection() {
     return this.client.db().collection('users');
   }
@@ -33,5 +36,5 @@ class DBClient {
   }
 }
 
-export const dbClient = new DBClient();
+const dbClient = new DBClient();
 export default dbClient;

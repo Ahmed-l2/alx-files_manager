@@ -1,4 +1,3 @@
-/* eslint-disable import/no-named-as-default */
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
