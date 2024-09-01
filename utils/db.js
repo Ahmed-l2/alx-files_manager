@@ -8,7 +8,7 @@ class DBClient {
     const dbURL = `mongodb://${host}:${port}/${database}`;
 
     this.client = new mongodb.MongoClient(dbURL, { useNewUrlParser: true, useUnifiedTopology: true });
-    this.client.connect(database);
+    this.client.connect();
   }
 
   isAlive() {
