@@ -73,25 +73,43 @@ class FilesController {
     const users = await dbClient.usersCollection();
     const user = await users.findOne({ _id: ObjectId(userId) });
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
     const filesCollection = await dbClient.filesCollection();
     const file = await filesCollection.findOne({ _id: ObjectId(req.params.id), userId });
     if (!file) return res.status(404).json({ error: 'Not found' });
-    if (file.type === 'folder') return res.status(400).json({ error: 'A folder doesn\'t have content' });
     return res.status(200).json(file);
   }
 
   static async getIndex(req, res) {
     const token = req.headers['x-token'];
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
     const key = `auth_${token}`;
     const userId = await redisClient.get(key);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
     const users = await dbClient.usersCollection();
     const user = await users.findOne({ _id: ObjectId(userId) });
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
     const filesCollection = await dbClient.filesCollection();
-    const files = await filesCollection.find({ userId }).toArray();
-    return res.status(200).json(files);
+    const parentId = parseInt(req.query.parentId, 10) || 0;
+    const page = parseInt(req.query.page, 10) || 0;
+    const pageSize = 20;
+
+    try {
+      const files = await filesCollection.aggregate([
+        { $match: { userId: ObjectId(userId), parentId } },
+        { $sort: { _id: 1 } },
+        { $skip: page * pageSize },
+        { $limit: pageSize },
+      ]).toArray();
+
+      return res.status(200).json(files);
+    } catch (error) {
+      console.error('Error retrieving files:', error);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
   }
 }
 
