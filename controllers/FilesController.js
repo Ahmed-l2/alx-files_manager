@@ -93,21 +93,22 @@ class FilesController {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     const filesCollection = await dbClient.filesCollection();
-    const parentId = parseInt(req.query.parentId, 10) || 0;
-    const page = parseInt(req.query.page, 10) || 0;
-    const pageSize = 20;
+
+    const { parentId = 0, page = 0 } = req.query;
+    const pageNumber = parseInt(page, 10);
+    const skip = pageNumber * 20;
+    const limit = 20;
 
     try {
       const files = await filesCollection.aggregate([
-        { $match: { userId: ObjectId(userId), parentId } },
-        { $sort: { _id: 1 } },
-        { $skip: page * pageSize },
-        { $limit: pageSize },
+        { $match: { userId, parentId: parseInt(parentId, 10) } },
+        { $skip: skip },
+        { $limit: limit },
       ]).toArray();
 
       return res.status(200).json(files);
     } catch (error) {
-      console.error('Error retrieving files:', error);
+      console.error(error);
       return res.status(500).json({ error: 'Internal Server Error' });
     }
   }
