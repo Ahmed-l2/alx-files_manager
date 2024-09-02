@@ -119,6 +119,46 @@ class FilesController {
       return res.status(500).json({ error: 'Internal Server Error' });
     }
   }
+
+  static async putPublish(req, res) {
+    const token = req.headers['x-token'];
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const key = `auth_${token}`;
+    const userId = await redisClient.get(key);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const users = await dbClient.usersCollection();
+    const user = await users.findOne({ _id: ObjectId(userId) });
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    const filesCollection = await dbClient.filesCollection();
+    const file = await filesCollection.findOne({ _id: ObjectId(req.params.id), userId });
+    if (!file) return res.status(404).json({ error: 'Not found' });
+    const results = await filesCollection.findOneAndUpdate(
+      { _id: ObjectId(req.params.id), userId: user._id },
+      { $set: { isPublic: true } },
+      { projection: { _id: 0, localPath: 0 } },
+    );
+    return res.status(200).json({ id: file._id, ...results.value });
+  }
+
+  static async putUnpublish(req, res) {
+    const token = req.headers['x-token'];
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const key = `auth_${token}`;
+    const userId = await redisClient.get(key);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const users = await dbClient.usersCollection();
+    const user = await users.findOne({ _id: ObjectId(userId) });
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    const filesCollection = await dbClient.filesCollection();
+    const file = await filesCollection.findOne({ _id: ObjectId(req.params.id), userId });
+    if (!file) return res.status(404).json({ error: 'Not found' });
+    const results = await filesCollection.findOneAndUpdate(
+      { _id: ObjectId(req.params.id), userId: user._id },
+      { $set: { isPublic: true } },
+      { projection: { _id: 0, localPath: 0 } },
+    );
+    return res.status(200).json({ id: file._id, ...results.value });
+  }
 }
 
 export default FilesController;
