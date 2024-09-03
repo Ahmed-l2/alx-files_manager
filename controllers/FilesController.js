@@ -5,6 +5,21 @@ import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
 class FilesController {
+  static async getUser(request) {
+    const token = request.header('X-Token');
+    const key = `auth_${token}`;
+    const userId = await redisClient.get(key);
+    if (userId) {
+      const users = await dbClient.usersCollection();
+      const idObject = new ObjectId(userId);
+      const user = await users.findOne({ _id: idObject });
+      if (!user) {
+        return null;
+      }
+      return user;
+    }
+    return null;
+  }
   static async postUpload(req, res) {
     const token = req.headers['x-token'];
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
@@ -120,44 +135,42 @@ class FilesController {
     }
   }
 
-  static async putPublish(req, res) {
-    const token = req.headers['x-token'];
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
-    const key = `auth_${token}`;
-    const userId = await redisClient.get(key);
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    const users = await dbClient.usersCollection();
-    const user = await users.findOne({ _id: ObjectId(userId) });
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    const filesCollection = await dbClient.filesCollection();
-    const file = await filesCollection.findOne({ _id: ObjectId(req.params.id), userId });
-    if (!file) return res.status(404).json({ error: 'Not found' });
-    const results = await filesCollection.findOneAndUpdate(
-      { _id: ObjectId(req.params.id), userId: user._id },
-      { $set: { isPublic: true } },
-      { projection: { _id: 0, localPath: 0 } },
-    );
-    return res.status(200).json({ id: file._id, ...results.value });
+  static async putPublish(request, response) {
+    const user = await FilesController.getUser(request);
+    if (!user) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+    const { id } = request.params;
+    const files = await dbClient.filesCollection();
+    const idObject = new ObjectId(id);
+    const newValue = { $set: { isPublic: true } };
+    const options = { returnOriginal: false };
+    files.findOneAndUpdate({ _id: idObject, userId: user._id }, newValue, options, (err, file) => {
+      if (!file.lastErrorObject.updatedExisting) {
+        return response.status(404).json({ error: 'Not found' });
+      }
+      return response.status(200).json(file.value);
+    });
+    return null;
   }
 
-  static async putUnpublish(req, res) {
-    const token = req.headers['x-token'];
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
-    const key = `auth_${token}`;
-    const userId = await redisClient.get(key);
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    const users = await dbClient.usersCollection();
-    const user = await users.findOne({ _id: ObjectId(userId) });
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    const filesCollection = await dbClient.filesCollection();
-    const file = await filesCollection.findOne({ _id: ObjectId(req.params.id), userId });
-    if (!file) return res.status(404).json({ error: 'Not found' });
-    const results = await filesCollection.findOneAndUpdate(
-      { _id: ObjectId(req.params.id), userId: user._id },
-      { $set: { isPublic: true } },
-      { projection: { _id: 0, localPath: 0 } },
-    );
-    return res.status(200).json({ id: file._id, ...results.value });
+  static async putUnpublish(request, response) {
+    const user = await FilesController.getUser(request);
+    if (!user) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+    const { id } = request.params;
+    const files = await dbClient.filesCollection();
+    const idObject = new ObjectId(id);
+    const newValue = { $set: { isPublic: false } };
+    const options = { returnOriginal: false };
+    files.findOneAndUpdate({ _id: idObject, userId: user._id }, newValue, options, (err, file) => {
+      if (!file.lastErrorObject.updatedExisting) {
+        return response.status(404).json({ error: 'Not found' });
+      }
+      return response.status(200).json(file.value);
+    });
+    return null;
   }
 }
 
