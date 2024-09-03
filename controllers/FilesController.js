@@ -2,9 +2,9 @@ import { ObjectId } from 'mongodb';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import mime from 'mime-types';
+import Queue from 'bull';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
-import Queue from 'bull';
 
 class FilesController {
   static async getUser(req) {
@@ -92,52 +92,37 @@ class FilesController {
     const fileId = req.params.id;
     const files = await dbClient.filesCollection();
     const idObject = new ObjectId(fileId);
-    const file = await files.findOne({ _id: idObject, userId: user._id });
+    const file = await files.findOne({ _id: idObject, userId: user._id.toString() });
     if (!file) return res.status(404).json({ error: 'Not found' });
     return res.status(200).json(file);
   }
 
   static async getIndex(req, res) {
     const user = await FilesController.getUser(req);
-
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    const { parentId, page } = req.query;
-    const pageNum = page || 0;
+    const { parentId } = req.query;
+    const page = req.query.page || 0;
     const files = await dbClient.filesCollection();
-    let query;
+    let filter;
 
-    if (!parentId) query = { userId: user._id };
-    else query = { userId: user._id, parentId: ObjectId(parentId) };
-
-    files.aggregate(
-      [
-        { $match: query },
-        { $sort: { _id: -1 } },
-        {
-          $facet: {
-            metadata: [{ $count: 'total' }, { $addFields: { page: parseInt(pageNum, 10) } }],
-            data: [{ $skip: 20 * parseInt(pageNum, 10) }, { $limit: 20 }],
-          },
+    if (parentId) {
+      filter = { _id: ObjectId(parentId), userId: user._id.toString() };
+    } else {
+      filter = { userId: user._id.toString() };
+    }
+    const result = files.aggregate([
+      { $match: filter },
+      { $skip: parseInt(page, 10) * 20 },
+      { $limit: 20 },
+      {
+        $project: {
+          id: '$_id', _id: 0, userId: 1, name: 1, type: 1, isPublic: 1, parentId: 1,
         },
-      ],
-    ).toArray((err, result) => {
-      if (result) {
-        const final = result[0].data.map((file) => {
-          const tmpFile = {
-            ...file,
-            id: file._id,
-          };
-          delete tmpFile._id;
-          delete tmpFile.localPath;
-          return tmpFile;
-        });
-        return res.status(200).json(final);
-      }
-      console.log('Error occured');
-      return res.status(404).json({ error: 'Not found' });
-    });
-    return null;
+      },
+    ]);
+    const resultArray = await result.toArray();
+    return res.status(200).json(resultArray);
   }
 
   static async putPublish(req, res) {
@@ -148,7 +133,10 @@ class FilesController {
     const idObject = new ObjectId(id);
     const update = { $set: { isPublic: true } };
     const options = { returnOriginal: false };
-    files.findOneAndUpdate({ _id: idObject, userId: user._id }, update, options, (err, file) => {
+    files.findOneAndUpdate({
+      _id: idObject,
+      userId: user._id.toString(),
+    }, update, options, (err, file) => {
       if (!file.lastErrorObject.updatedExisting) {
         return res.status(404).json({ error: 'Not found' });
       }
@@ -167,7 +155,10 @@ class FilesController {
     const idObject = new ObjectId(id);
     const update = { $set: { isPublic: false } };
     const options = { returnOriginal: false };
-    files.findOneAndUpdate({ _id: idObject, userId: user._id }, update, options, (err, file) => {
+    files.findOneAndUpdate({
+      _id: idObject,
+      userId: user._id.toString(),
+    }, update, options, (err, file) => {
       if (!file.lastErrorObject.updatedExisting) {
         return res.status(404).json({ error: 'Not found' });
       }
