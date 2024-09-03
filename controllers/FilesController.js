@@ -92,7 +92,7 @@ class FilesController {
     const fileId = req.params.id;
     const files = await dbClient.filesCollection();
     const idObject = new ObjectId(fileId);
-    const file = await files.findOne({ _id: idObject, userId: user._id.toString() });
+    const file = await files.findOne({ _id: idObject, userId: user._id });
     if (!file) return res.status(404).json({ error: 'Not found' });
     return res.status(200).json(file);
   }
@@ -107,7 +107,7 @@ class FilesController {
     let filter;
 
     if (parentId) {
-      filter = { _id: ObjectId(parentId), userId: user._id.toString() };
+      filter = { _id: ObjectId(parentId), userId: user._id };
     } else {
       filter = { userId: user._id.toString() };
     }
