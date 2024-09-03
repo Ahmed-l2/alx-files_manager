@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import mime from 'mime-types';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
+import Queue from 'bull';
 
 class FilesController {
   static async getUser(req) {
@@ -23,6 +24,7 @@ class FilesController {
   }
 
   static async postUpload(req, res) {
+    const queue = new Queue('fileQueue');
     const token = req.headers['x-token'];
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -75,6 +77,9 @@ class FilesController {
       fs.writeFileSync(filePath, data, 'base64');
 
       const newFile = await filesCollection.insertOne({ ...fileData, localPath: filePath });
+      if (type === 'image') {
+        queue.add({ userId, fileId: newFile.insertedId });
+      }
       return res.status(201).json({ id: newFile.insertedId, ...fileData });
     } catch (error) {
       return res.status(500).json({ error: 'Internal server error' });
