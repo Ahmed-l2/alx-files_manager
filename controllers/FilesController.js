@@ -86,43 +86,67 @@ class FilesController {
     }
   }
 
-  static async getShow(req, res) {
-    const user = await FilesController.getUser(req);
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    const fileId = req.params.id;
+  static async getShow(request, response) {
+    const user = await FilesController.getUser(request);
+    if (!user) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+    const fileId = request.params.id;
     const files = await dbClient.filesCollection();
     const idObject = new ObjectId(fileId);
     const file = await files.findOne({ _id: idObject, userId: user._id });
-    if (!file) return res.status(404).json({ error: 'Not found' });
-    return res.status(200).json(file);
+    if (!file) {
+      return response.status(404).json({ error: 'Not found' });
+    }
+    return response.status(200).json(file);
   }
 
-  static async getIndex(req, res) {
-    const user = await FilesController.getUser(req);
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
-
-    const { parentId } = req.query;
-    const page = req.query.page || 0;
-    const files = await dbClient.filesCollection();
-    let filter;
-
-    if (parentId) {
-      filter = { _id: ObjectId(parentId), userId: user._id };
-    } else {
-      filter = { userId: user._id.toString() };
+  static async getIndex(request, response) {
+    const user = await FilesController.getUser(request);
+    if (!user) {
+      return response.status(401).json({ error: 'Unauthorized' });
     }
-    const result = files.aggregate([
-      { $match: filter },
-      { $skip: parseInt(page, 10) * 20 },
-      { $limit: 20 },
-      {
-        $project: {
-          id: '$_id', _id: 0, userId: 1, name: 1, type: 1, isPublic: 1, parentId: 1,
+    const {
+      parentId,
+      page,
+    } = request.query;
+    const pageNum = page || 0;
+    const files = dbClient.filesCollection();
+    let query;
+    if (!parentId) {
+      query = { userId: user._id };
+    } else {
+      query = { userId: user._id, parentId: ObjectId(parentId) };
+    }
+    files.aggregate(
+      [
+        { $match: query },
+        { $sort: { _id: -1 } },
+        {
+          $facet: {
+            metadata: [{ $count: 'total' }, { $addFields: { page: parseInt(pageNum, 10) } }],
+            data: [{ $skip: 20 * parseInt(pageNum, 10) }, { $limit: 20 }],
+          },
         },
-      },
-    ]);
-    const resultArray = await result.toArray();
-    return res.status(200).json(resultArray);
+      ],
+    ).toArray((err, result) => {
+      if (result) {
+        const final = result[0].data.map((file) => {
+          const tmpFile = {
+            ...file,
+            id: file._id,
+          };
+          delete tmpFile._id;
+          delete tmpFile.localPath;
+          return tmpFile;
+        });
+        // console.log(final);
+        return response.status(200).json(final);
+      }
+      console.log('Error occured');
+      return response.status(404).json({ error: 'Not found' });
+    });
+    return null;
   }
 
   static async putPublish(req, res) {
