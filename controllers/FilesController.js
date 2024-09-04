@@ -148,44 +148,40 @@ class FilesController {
     return null;
   }
 
-  static async putPublish(req, res) {
-    const user = await FilesController.getUser(req);
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    const { id } = req.params;
+  static async putPublish(request, response) {
+    const user = await FilesController.getUser(request);
+    if (!user) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+    const { id } = request.params;
     const files = await dbClient.filesCollection();
     const idObject = new ObjectId(id);
-    const update = { $set: { isPublic: true } };
+    const newValue = { $set: { isPublic: true } };
     const options = { returnOriginal: false };
-    files.findOneAndUpdate({
-      _id: idObject,
-      userId: user._id.toString(),
-    }, update, options, (err, file) => {
+    files.findOneAndUpdate({ _id: idObject, userId: user._id }, newValue, options, (err, file) => {
       if (!file.lastErrorObject.updatedExisting) {
-        return res.status(404).json({ error: 'Not found' });
+        return response.status(404).json({ error: 'Not found' });
       }
-      return res.status(200).json(file.value);
+      return response.status(200).json(file.value);
     });
     return null;
   }
 
-  static async putUnpublish(req, res) {
-    const user = await FilesController.getUser(req);
+  static async putUnpublish(request, response) {
+    const user = await FilesController.getUser(request);
     if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return response.status(401).json({ error: 'Unauthorized' });
     }
-    const { id } = req.params;
+    const { id } = request.params;
     const files = await dbClient.filesCollection();
     const idObject = new ObjectId(id);
-    const update = { $set: { isPublic: false } };
+    const newValue = { $set: { isPublic: false } };
     const options = { returnOriginal: false };
-    files.findOneAndUpdate({
-      _id: idObject,
-      userId: user._id.toString(),
-    }, update, options, (err, file) => {
+    files.findOneAndUpdate({ _id: idObject, userId: user._id }, newValue, options, (err, file) => {
       if (!file.lastErrorObject.updatedExisting) {
-        return res.status(404).json({ error: 'Not found' });
+        return response.status(404).json({ error: 'Not found' });
       }
-      return res.status(200).json(file.value);
+      return response.status(200).json(file.value);
     });
     return null;
   }
