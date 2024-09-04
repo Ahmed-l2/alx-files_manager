@@ -111,7 +111,7 @@ class FilesController {
       page,
     } = request.query;
     const pageNum = page || 0;
-    const files = dbClient.filesCollection();
+    const files = await dbClient.filesCollection();
     let query;
     if (!parentId) {
       query = { userId: user._id };
@@ -140,7 +140,6 @@ class FilesController {
           delete tmpFile.localPath;
           return tmpFile;
         });
-        // console.log(final);
         return response.status(200).json(final);
       }
       console.log('Error occured');
